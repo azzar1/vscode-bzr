@@ -7,13 +7,30 @@
     "engines": {
         "vscode": "^1.15.0"
     },
+    "homepage": "https://github.com/azzar1/vscode-bzr/blob/master/README.md",
+    "license": "MIT",
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/azzar1/vscode-bzr.git"
+    },
+    "bugs": {
+        "url": "https://github.com/azzar1/vscode-bzr/issues"
+    },
     "categories": [
+        "SCM Providers",
         "Other"
     ],
+    "keywords": [
+        "bzr",
+        "bazaar",
+        "source",
+        "scm"
+    ],
+    "icon": "icon.png",
     "activationEvents": [
         "onCommand:extension.sayHello"
     ],
-    "main": "./extension",
+    "main": "./src/extension",
     "contributes": {
         "commands": [{
             "command": "extension.sayHello",
