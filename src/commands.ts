@@ -8,7 +8,7 @@
 
 import { Uri, commands, Disposable, window, workspace, QuickPickItem, OutputChannel, Range, WorkspaceEdit, Position/*, LineChange*/, SourceControlResourceState, TextDocumentShowOptions, ViewColumn, ProgressLocation } from 'vscode';
 import { /*Ref, RefType,*/ Bzr, BzrErrorCodes/*, Branch*/ } from './bzr';
-import { Repository , Resource, Status /*, CommitOptions, ResourceGroupType*/ } from './repository';
+import { Repository, Resource, Status /*, CommitOptions, ResourceGroupType*/ } from './repository';
 import { Model } from './model';
 import { toBzrUri, fromBzrUri } from './uri';
 // import { applyLineChanges, intersectDiffWithRange, toLineRanges, invertLineChange } from './staging';
@@ -139,9 +139,9 @@ export class CommandCenter {
       const command = this.createCommand(commandId, key, method, options);
 
       //if (options.diff) {
-        //return commands.registerDiffInformationCommand(commandId, command);
+      //return commands.registerDiffInformationCommand(commandId, command);
       //} else {
-        return commands.registerCommand(commandId, command);
+      return commands.registerCommand(commandId, command);
       //}
     });
   }
@@ -207,58 +207,55 @@ export class CommandCenter {
     return `${basename} (Diff)`;
   }
 
-  // @command('git.clone')
-  // async clone(): Promise<void> {
-  //   const url = await window.showInputBox({
-  //     prompt: localize('repourl', "Repository URL"),
-  //     ignoreFocusOut: true
-  //   });
+  @command('bzr.clone')
+  async clone(): Promise<void> {
+    const url = await window.showInputBox({
+      prompt: localize('repourl', "Repository URL"),
+      ignoreFocusOut: true
+    });
 
-  //   if (!url) {
-  //     this.telemetryReporter.sendTelemetryEvent('clone', { outcome: 'no_URL' });
-  //     return;
-  //   }
+    if (!url) {
+      return;
+    }
 
-  //   const config = workspace.getConfiguration('git');
-  //   const value = config.get<string>('defaultCloneDirectory') || os.homedir();
+    const config = workspace.getConfiguration('bzr');
+    const value = config.get<string>('defaultCloneDirectory') || os.homedir();
 
-  //   const parentPath = await window.showInputBox({
-  //     prompt: localize('parent', "Parent Directory"),
-  //     value,
-  //     ignoreFocusOut: true
-  //   });
+    const parentPath = await window.showInputBox({
+      prompt: localize('parent', "Parent Directory"),
+      value,
+      ignoreFocusOut: true
+    });
 
-  //   if (!parentPath) {
-  //     this.telemetryReporter.sendTelemetryEvent('clone', { outcome: 'no_directory' });
-  //     return;
-  //   }
+    if (!parentPath) {
+      return;
+    }
 
-  //   const clonePromise = this.git.clone(url, parentPath);
+    const folderName = await window.showInputBox({
+      prompt: localize('foldername', "Folder Name"),
+      value: 'repository',
+      ignoreFocusOut: true
+    });
 
+    if (!folderName) {
+      return;
+    }
 
-  //   try {
-  //     window.withProgress({ location: ProgressLocation.SourceControl, title: localize('cloning', "Cloning git repository...") }, () => clonePromise);
-  //     window.withProgress({ location: ProgressLocation.Window, title: localize('cloning', "Cloning git repository...") }, () => clonePromise);
+    const clonePromise = this.bzr.clone(url, folderName, parentPath);
 
-  //     const repositoryPath = await clonePromise;
+    window.withProgress({ location: ProgressLocation.SourceControl, title: localize('cloning', "Cloning bzr repository...") }, () => clonePromise);
+    window.withProgress({ location: ProgressLocation.Window, title: localize('cloning', "Cloning bzr repository...") }, () => clonePromise);
 
-  //     const open = localize('openrepo', "Open Repository");
-  //     const result = await window.showInformationMessage(localize('proposeopen', "Would you like to open the cloned repository?"), open);
+    const repositoryPath = await clonePromise;
 
-  //     const openFolder = result === open;
-  //     this.telemetryReporter.sendTelemetryEvent('clone', { outcome: 'success' }, { openFolder: openFolder ? 1 : 0 });
-  //     if (openFolder) {
-  //       commands.executeCommand('vscode.openFolder', Uri.file(repositoryPath));
-  //     }
-  //   } catch (err) {
-  //     if (/already exists and is not an empty directory/.test(err && err.stderr || '')) {
-  //       this.telemetryReporter.sendTelemetryEvent('clone', { outcome: 'directory_not_empty' });
-  //     } else {
-  //       this.telemetryReporter.sendTelemetryEvent('clone', { outcome: 'error' });
-  //     }
-  //     throw err;
-  //   }
-  // }
+    const open = localize('openrepo', "Open Repository");
+    const result = await window.showInformationMessage(localize('proposeopen', "Would you like to open the cloned repository?"), open);
+
+    const openFolder = result === open;
+    if (openFolder) {
+      commands.executeCommand('vscode.openFolder', Uri.file(repositoryPath));
+    }
+  }
 
   @command('bzr.init')
   async init(): Promise<void> {

@@ -7,9 +7,10 @@
 'use strict';
 
 import * as cp from 'child_process';
+import * as path from 'path';
 import { EventEmitter } from 'events';
 import iconv = require('iconv-lite');
-import { assign, /*uniqBy, groupBy, denodeify,*/ IDisposable, toDisposable, dispose /*, mkdirp*/ } from './util';
+import { assign, /*uniqBy, groupBy, denodeify,*/ IDisposable, toDisposable, dispose, mkdirp } from './util';
 
 export interface IBzr {
   path: string;
@@ -169,7 +170,7 @@ export interface IBzrOptions {
 export const BzrErrorCodes = {
   // BadConfigFile: 'BadConfigFile',
   // AuthenticationFailed: 'AuthenticationFailed',
-  // NoUserNameConfigured: 'NoUserNameConfigured',
+  NoUserNameConfigured: 'NoUserNameConfigured',
   // NoUserEmailConfigured: 'NoUserEmailConfigured',
   // NoRemoteRepositorySpecified: 'NoRemoteRepositorySpecified',
   NotABzrRepository: 'NotABzrRepository',
@@ -197,6 +198,8 @@ function getBzrErrorCode(stderr: string): string | undefined {
     return BzrErrorCodes.NotABzrRepository;
   } else if (/Unable to obtain lock file/.test(stderr)) {
     return BzrErrorCodes.RepositoryIsLocked;
+  } else if (/You have not informed bzr of your Launchpad ID/) {
+    return BzrErrorCodes.NoUserNameConfigured;
   }
   // } else if (/Authentication failed/.test(stderr)) {
   // 	return GitErrorCodes.AuthenticationFailed;
@@ -241,6 +244,14 @@ export class Bzr {
   async init(repository: string): Promise<void> {
     await this.exec(repository, ['init']);
     return;
+  }
+
+  async clone(url: string, folderName: string, parentPath: string): Promise<string> {
+    const folderPath = path.join(parentPath, folderName);
+
+    await mkdirp(parentPath);
+    await this.exec(parentPath, ['branch', url, folderPath]);
+    return folderPath;
   }
 
   async getRepositoryRoot(path: string): Promise<string> {

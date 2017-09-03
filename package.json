@@ -35,6 +35,11 @@
     "contributes": {
         "commands": [
             {
+                "command": "bzr.clone",
+                "title": "%command.clone%",
+                "category": "Bzr"
+            },
+            {
                 "command": "bzr.init",
                 "title": "%command.init%",
                 "category": "Bzr",
@@ -78,6 +83,10 @@
         ],
         "menus": {
             "commandPalette": [
+                {
+                    "command": "bzr.clone",
+                    "when": "config.bzr.enabled"
+                },
                 {
                     "command": "bzr.init",
                     "when": "config.bzr.enabled"
@@ -177,6 +186,11 @@
                     "type": "boolean",
                     "description": "%config.ignoreLimitWarning%",
                     "default": false
+                },
+                "bzr.defaultCloneDirectory": {
+                    "type": "string",
+                    "default": null,
+                    "description": "%config.defaultCloneDirectory%"
                 }
             }
         }
