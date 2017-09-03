@@ -277,7 +277,7 @@ export class Model {
         return liveRepository;
       }
 
-      if (hint === repository.mergeGroup || hint === repository.indexGroup || hint === repository.workingTreeGroup) {
+      if (hint === repository.modifiedGroup || hint === repository.unknownGroup) {
         return liveRepository;
       }
     }

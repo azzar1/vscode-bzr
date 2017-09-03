@@ -16,6 +16,14 @@ export interface IBzr {
   version: string;
 }
 
+export interface IFileStatus {
+  x: string;
+  y: string;
+  exe: string;
+  path: string;
+  rename?: string;
+}
+
 function parseVersion(raw: string): string {
   return raw;
 }
@@ -176,7 +184,7 @@ export const BzrErrorCodes = {
   // CantCreatePipe: 'CantCreatePipe',
   // CantAccessRemote: 'CantAccessRemote',
   // RepositoryNotFound: 'RepositoryNotFound',
-  // RepositoryIsLocked: 'RepositoryIsLocked',
+  RepositoryIsLocked: 'RepositoryIsLocked',
   // BranchNotFullyMerged: 'BranchNotFullyMerged',
   // NoRemoteReference: 'NoRemoteReference',
   // NoLocalChanges: 'NoLocalChanges',
@@ -187,9 +195,9 @@ export const BzrErrorCodes = {
 function getBzrErrorCode(stderr: string): string | undefined {
   if (/Not a branch/.test(stderr)) {
     return BzrErrorCodes.NotABzrRepository;
+  } else if (/Unable to obtain lock file/.test(stderr)) {
+    return BzrErrorCodes.RepositoryIsLocked;
   }
-  // if (/Another git process seems to be running in this repository|If no other git process is currently running/.test(stderr)) {
-  // 	return GitErrorCodes.RepositoryIsLocked;
   // } else if (/Authentication failed/.test(stderr)) {
   // 	return GitErrorCodes.AuthenticationFailed;
   // } else if (/Not a git repository/.test(stderr)) {
@@ -245,10 +253,10 @@ export class Bzr {
     return await this._exec(args, options);
   }
 
-  // stream(cwd: string, args: string[], options: any = {}): cp.ChildProcess {
-  //   options = assign({ cwd }, options || {});
-  //   return this.spawn(args, options);
-  // }
+  stream(cwd: string, args: string[], options: any = {}): cp.ChildProcess {
+    options = assign({ cwd }, options || {});
+    return this.spawn(args, options);
+  }
 
   private async _exec(args: string[], options: any = {}): Promise<IExecutionResult> {
     const child = this.spawn(args, options);
@@ -308,6 +316,81 @@ export class Bzr {
   }
 }
 
+export class BzrStatusParser {
+
+  private lastRaw = '';
+  private result: IFileStatus[] = [];
+
+  get status(): IFileStatus[] {
+    return this.result;
+  }
+
+  update(raw: string): void {
+    let i = 0;
+    let nextI: number | undefined;
+
+    console.log(raw);
+
+    raw = this.lastRaw + raw;
+
+    while ((nextI = this.parseEntry(raw, i)) !== undefined) {
+      i = nextI;
+    }
+
+    this.lastRaw = raw.substr(i);
+  }
+
+  private parseEntry(raw: string, i: number): number | undefined {
+    if (i + 4 >= raw.length) {
+      return;
+    }
+
+    let lastIndex: number;
+    const entry: IFileStatus = {
+      x: raw.charAt(i++),
+      y: raw.charAt(i++),
+      exe: raw.charAt(i++),
+      rename: undefined,
+      path: ''
+    };
+
+    // space
+    i++;
+
+    if (entry.x === 'R' || entry.x === 'K') {
+      lastIndex = raw.indexOf(' => ', i);
+
+      if (lastIndex === -1) {
+        return;
+      }
+
+      entry.path = raw.substring(i, lastIndex);
+      i = lastIndex + 4;
+
+      lastIndex = raw.indexOf('\n', i);
+
+      if (lastIndex === -1) {
+        return;
+      }
+
+      entry.rename = raw.substring(i, lastIndex);
+    } else {
+      lastIndex = raw.indexOf('\n', i);
+
+      if (lastIndex === -1) {
+        return;
+      }
+
+      entry.path = raw.substring(i, lastIndex);
+    }
+
+    this.result.push(entry);
+
+    return lastIndex + 1;
+  }
+}
+
+
 export class Repository {
 
   constructor(
@@ -321,5 +404,53 @@ export class Repository {
 
   get root(): string {
     return this.repositoryRoot;
+  }
+
+  stream(args: string[], options: any = {}): cp.ChildProcess {
+    return this.bzr.stream(this.repositoryRoot, args, options);
+  }
+
+  getStatus(limit = 5000): Promise<{ status: IFileStatus[]; didHitLimit: boolean; }> {
+    return new Promise<{ status: IFileStatus[]; didHitLimit: boolean; }>((c, e) => {
+      const parser = new BzrStatusParser();
+      const child = this.stream(['status', '-S', '--no-classify']);
+
+      const onExit = exitCode => {
+        if (exitCode !== 0) {
+          const stderr = stderrData.join('');
+          return e(new BzrError({
+            message: 'Failed to execute bzr',
+            stderr,
+            exitCode,
+            bzrErrorCode: getBzrErrorCode(stderr),
+            bzrCommand: 'status'
+          }));
+        }
+
+        c({ status: parser.status, didHitLimit: false });
+      };
+
+      const onStdoutData = (raw: string) => {
+        parser.update(raw);
+
+        if (parser.status.length > 5000) {
+          child.removeListener('exit', onExit);
+          child.stdout.removeListener('data', onStdoutData);
+          child.kill();
+
+          c({ status: parser.status.slice(0, 5000), didHitLimit: true });
+        }
+      };
+
+      child.stdout.setEncoding('utf8');
+      child.stdout.on('data', onStdoutData);
+
+      const stderrData: string[] = [];
+      child.stderr.setEncoding('utf8');
+      child.stderr.on('data', raw => stderrData.push(raw as string));
+
+      child.on('error', e);
+      child.on('exit', onExit);
+    });
   }
 }

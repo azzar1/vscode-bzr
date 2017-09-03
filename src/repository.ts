@@ -7,7 +7,7 @@
 'use strict';
 
 import { Uri, Command, EventEmitter, Event, scm, SourceControl, SourceControlInputBox, SourceControlResourceGroup, SourceControlResourceState, SourceControlResourceDecorations, Disposable, ProgressLocation, window, workspace, WorkspaceEdit } from 'vscode';
-import { Repository as BaseRepository, /*Ref, Branch, Remote, Commit, GitErrorCodes, Stash*/ } from './bzr';
+import { Repository as BaseRepository, /*Ref, Branch, Remote, Commit,*/ BzrErrorCodes /*, Stash*/ } from './bzr';
 import { anyEvent, filterEvent, eventToPromise, dispose, find } from './util';
 import { memoize, throttle, debounce } from './decorators';
 //import { toGitUri } from './uri';
@@ -17,7 +17,7 @@ import * as nls from 'vscode-nls';
 import * as fs from 'fs';
 //import { StatusBarCommands } from './statusbar';
 
-// const timeout = (millis: number) => new Promise(c => setTimeout(c, millis));
+const timeout = (millis: number) => new Promise(c => setTimeout(c, millis));
 
 const localize = nls.loadMessageBundle();
 const iconsRootPath = path.join(path.dirname(__dirname), 'resources', 'icons');
@@ -32,24 +32,24 @@ export enum RepositoryState {
 }
 
 export enum Status {
-  INDEX_MODIFIED,
-  INDEX_ADDED,
-  INDEX_DELETED,
-  INDEX_RENAMED,
-  INDEX_COPIED,
-
   MODIFIED,
+  ADDED,
   DELETED,
-  UNTRACKED,
-  IGNORED,
+  RENAMED,
+  //INDEX_COPIED,
 
-  ADDED_BY_US,
-  ADDED_BY_THEM,
-  DELETED_BY_US,
-  DELETED_BY_THEM,
-  BOTH_ADDED,
-  BOTH_DELETED,
-  BOTH_MODIFIED
+  //MODIFIED,
+  //DELETED,
+  UNTRACKED,
+  //IGNORED,
+
+  //ADDED_BY_US,
+  //ADDED_BY_THEM,
+  //DELETED_BY_US,
+  //DELETED_BY_THEM,
+  //BOTH_ADDED,
+  //BOTH_DELETED,
+  //BOTH_MODIFIED
 }
 
 export enum ResourceGroupType {
@@ -62,7 +62,7 @@ export class Resource implements SourceControlResourceState {
 
   @memoize
   get resourceUri(): Uri {
-    if (this.renameResourceUri && (this._type === Status.MODIFIED || this._type === Status.DELETED || this._type === Status.INDEX_RENAMED || this._type === Status.INDEX_COPIED)) {
+    if (this.renameResourceUri && (this._type === Status.MODIFIED || this._type === Status.DELETED || this._type === Status.RENAMED)) {
       return this.renameResourceUri;
     }
 
@@ -72,7 +72,7 @@ export class Resource implements SourceControlResourceState {
   @memoize
   get command(): Command {
     return {
-      command: 'git.openResource',
+      command: 'bzr.openResource',
       title: localize('open', "Open"),
       arguments: [this]
     };
@@ -89,74 +89,74 @@ export class Resource implements SourceControlResourceState {
       Added: getIconUri('status-added', 'light'),
       Deleted: getIconUri('status-deleted', 'light'),
       Renamed: getIconUri('status-renamed', 'light'),
-      Copied: getIconUri('status-copied', 'light'),
+      //Copied: getIconUri('status-copied', 'light'),
       Untracked: getIconUri('status-untracked', 'light'),
-      Ignored: getIconUri('status-ignored', 'light'),
-      Conflict: getIconUri('status-conflict', 'light'),
+      //Ignored: getIconUri('status-ignored', 'light'),
+      //Conflict: getIconUri('status-conflict', 'light'),
     },
     dark: {
       Modified: getIconUri('status-modified', 'dark'),
       Added: getIconUri('status-added', 'dark'),
       Deleted: getIconUri('status-deleted', 'dark'),
       Renamed: getIconUri('status-renamed', 'dark'),
-      Copied: getIconUri('status-copied', 'dark'),
+      //Copied: getIconUri('status-copied', 'dark'),
       Untracked: getIconUri('status-untracked', 'dark'),
-      Ignored: getIconUri('status-ignored', 'dark'),
-      Conflict: getIconUri('status-conflict', 'dark')
+      //Ignored: getIconUri('status-ignored', 'dark'),
+      //Conflict: getIconUri('status-conflict', 'dark')
     }
   };
 
   private getIconPath(theme: string): Uri | undefined {
     switch (this.type) {
-      case Status.INDEX_MODIFIED: return Resource.Icons[theme].Modified;
+      //case Status.INDEX_MODIFIED: return Resource.Icons[theme].Modified;
       case Status.MODIFIED: return Resource.Icons[theme].Modified;
-      case Status.INDEX_ADDED: return Resource.Icons[theme].Added;
-      case Status.INDEX_DELETED: return Resource.Icons[theme].Deleted;
+      case Status.ADDED: return Resource.Icons[theme].Added;
+      //case Status.INDEX_DELETED: return Resource.Icons[theme].Deleted;
       case Status.DELETED: return Resource.Icons[theme].Deleted;
-      case Status.INDEX_RENAMED: return Resource.Icons[theme].Renamed;
-      case Status.INDEX_COPIED: return Resource.Icons[theme].Copied;
+      case Status.RENAMED: return Resource.Icons[theme].Renamed;
+      //case Status.INDEX_COPIED: return Resource.Icons[theme].Copied;
       case Status.UNTRACKED: return Resource.Icons[theme].Untracked;
-      case Status.IGNORED: return Resource.Icons[theme].Ignored;
-      case Status.BOTH_DELETED: return Resource.Icons[theme].Conflict;
-      case Status.ADDED_BY_US: return Resource.Icons[theme].Conflict;
-      case Status.DELETED_BY_THEM: return Resource.Icons[theme].Conflict;
-      case Status.ADDED_BY_THEM: return Resource.Icons[theme].Conflict;
-      case Status.DELETED_BY_US: return Resource.Icons[theme].Conflict;
-      case Status.BOTH_ADDED: return Resource.Icons[theme].Conflict;
-      case Status.BOTH_MODIFIED: return Resource.Icons[theme].Conflict;
+      //case Status.IGNORED: return Resource.Icons[theme].Ignored;
+      //case Status.BOTH_DELETED: return Resource.Icons[theme].Conflict;
+      //case Status.ADDED_BY_US: return Resource.Icons[theme].Conflict;
+      //case Status.DELETED_BY_THEM: return Resource.Icons[theme].Conflict;
+      //case Status.ADDED_BY_THEM: return Resource.Icons[theme].Conflict;
+      //case Status.DELETED_BY_US: return Resource.Icons[theme].Conflict;
+      //case Status.BOTH_ADDED: return Resource.Icons[theme].Conflict;
+      //case Status.BOTH_MODIFIED: return Resource.Icons[theme].Conflict;
       default: return void 0;
     }
   }
 
-  private get tooltip(): string {
-    switch (this.type) {
-      case Status.INDEX_MODIFIED: return localize('index modified', "Index Modified");
-      case Status.MODIFIED: return localize('modified', "Modified");
-      case Status.INDEX_ADDED: return localize('index added', "Index Added");
-      case Status.INDEX_DELETED: return localize('index deleted', "Index Deleted");
-      case Status.DELETED: return localize('deleted', "Deleted");
-      case Status.INDEX_RENAMED: return localize('index renamed', "Index Renamed");
-      case Status.INDEX_COPIED: return localize('index copied', "Index Copied");
-      case Status.UNTRACKED: return localize('untracked', "Untracked");
-      case Status.IGNORED: return localize('ignored', "Ignored");
-      case Status.BOTH_DELETED: return localize('both deleted', "Both Deleted");
-      case Status.ADDED_BY_US: return localize('added by us', "Added By Us");
-      case Status.DELETED_BY_THEM: return localize('deleted by them', "Deleted By Them");
-      case Status.ADDED_BY_THEM: return localize('added by them', "Added By Them");
-      case Status.DELETED_BY_US: return localize('deleted by us', "Deleted By Us");
-      case Status.BOTH_ADDED: return localize('both added', "Both Added");
-      case Status.BOTH_MODIFIED: return localize('both modified', "Both Modified");
-      default: return '';
-    }
-  }
+  // private get tooltip(): string {
+  //   switch (this.type) {
+  //     //case Status.INDEX_MODIFIED: return localize('index modified', "Index Modified");
+  //     case Status.MODIFIED: return localize('modified', "Modified");
+  //     case Status.ADDED: return localize('added', "Added");
+  //     //case Status.INDEX_DELETED: return localize('index deleted', "Index Deleted");
+  //     case Status.DELETED: return localize('deleted', "Deleted");
+  //     case Status.RENAMED: return localize('renamed', "Renamed");
+  //     //case Status.INDEX_COPIED: return localize('index copied', "Index Copied");
+  //     case Status.UNTRACKED: return localize('untracked', "Untracked");
+  //     //case Status.IGNORED: return localize('ignored', "Ignored");
+  //     //case Status.BOTH_DELETED: return localize('both deleted', "Both Deleted");
+  //     //case Status.ADDED_BY_US: return localize('added by us', "Added By Us");
+  //     //case Status.DELETED_BY_THEM: return localize('deleted by them', "Deleted By Them");
+  //     //case Status.ADDED_BY_THEM: return localize('added by them', "Added By Them");
+  //     //case Status.DELETED_BY_US: return localize('deleted by us', "Deleted By Us");
+  //     //case Status.BOTH_ADDED: return localize('both added', "Both Added");
+  //     //case Status.BOTH_MODIFIED: return localize('both modified', "Both Modified");
+  //     default: return '';
+  //   }
+  // }
 
   private get strikeThrough(): boolean {
     switch (this.type) {
       case Status.DELETED:
-      case Status.BOTH_DELETED:
-      case Status.DELETED_BY_THEM:
-      case Status.DELETED_BY_US:
-      case Status.INDEX_DELETED:
+      //case Status.BOTH_DELETED:
+      //case Status.DELETED_BY_THEM:
+      //case Status.DELETED_BY_US:
+      //case Status.INDEX_DELETED:
         return true;
       default:
         return false;
@@ -174,7 +174,7 @@ export class Resource implements SourceControlResourceState {
   get decorations(): SourceControlResourceDecorations {
     const light = { iconPath: this.getIconPath('light') };
     const dark = { iconPath: this.getIconPath('dark') };
-    const tooltip = this.tooltip;
+    //const tooltip = this.tooltip;
     const strikeThrough = this.strikeThrough;
     const faded = this.faded;
 
@@ -189,28 +189,28 @@ export class Resource implements SourceControlResourceState {
   ) { }
 }
 
-// export enum Operation {
-//   Status = 1 << 0,
-//   Add = 1 << 1,
-//   RevertFiles = 1 << 2,
-//   Commit = 1 << 3,
-//   Clean = 1 << 4,
-//   Branch = 1 << 5,
-//   Checkout = 1 << 6,
-//   Reset = 1 << 7,
-//   Fetch = 1 << 8,
-//   Pull = 1 << 9,
-//   Push = 1 << 10,
-//   Sync = 1 << 11,
-//   Show = 1 << 12,
-//   Stage = 1 << 13,
-//   GetCommitTemplate = 1 << 14,
-//   DeleteBranch = 1 << 15,
-//   Merge = 1 << 16,
-//   Ignore = 1 << 17,
-//   Tag = 1 << 18,
-//   Stash = 1 << 19
-// }
+export enum Operation {
+  Status = 1 << 0
+  // Add = 1 << 1,
+  // RevertFiles = 1 << 2,
+  // Commit = 1 << 3,
+  // Clean = 1 << 4,
+  // Branch = 1 << 5,
+  // Checkout = 1 << 6,
+  // Reset = 1 << 7,
+  // Fetch = 1 << 8,
+  // Pull = 1 << 9,
+  // Push = 1 << 10,
+  // Sync = 1 << 11,
+  // Show = 1 << 12,
+  // Stage = 1 << 13,
+  // GetCommitTemplate = 1 << 14,
+  // DeleteBranch = 1 << 15,
+  // Merge = 1 << 16,
+  // Ignore = 1 << 17,
+  // Tag = 1 << 18,
+  // Stash = 1 << 19
+}
 
 // // function getOperationName(operation: Operation): string {
 // // 	switch (operation) {
@@ -234,61 +234,61 @@ export class Resource implements SourceControlResourceState {
 // // 	}
 // // }
 
-// function isReadOnly(operation: Operation): boolean {
-//   switch (operation) {
-//     case Operation.Show:
-//     case Operation.GetCommitTemplate:
-//       return true;
-//     default:
-//       return false;
-//   }
-// }
+function isReadOnly(operation: Operation): boolean {
+  switch (operation) {
+    //case Operation.Show:
+    //case Operation.GetCommitTemplate:
+    //  return true;
+    default:
+      return false;
+  }
+}
 
-// function shouldShowProgress(operation: Operation): boolean {
-//   switch (operation) {
-//     case Operation.Fetch:
-//       return false;
-//     default:
-//       return true;
-//   }
-// }
+function shouldShowProgress(operation: Operation): boolean {
+  switch (operation) {
+    //case Operation.Fetch:
+    //  return false;
+    default:
+      return true;
+  }
+}
 
-// export interface Operations {
-//   isIdle(): boolean;
-//   isRunning(operation: Operation): boolean;
-// }
+export interface Operations {
+  isIdle(): boolean;
+  isRunning(operation: Operation): boolean;
+}
 
-// class OperationsImpl implements Operations {
+class OperationsImpl implements Operations {
 
-//   constructor(private readonly operations: number = 0) {
-//     // noop
-//   }
+  constructor(private readonly operations: number = 0) {
+    // noop
+  }
 
-//   start(operation: Operation): OperationsImpl {
-//     return new OperationsImpl(this.operations | operation);
-//   }
+  start(operation: Operation): OperationsImpl {
+    return new OperationsImpl(this.operations | operation);
+  }
 
-//   end(operation: Operation): OperationsImpl {
-//     return new OperationsImpl(this.operations & ~operation);
-//   }
+  end(operation: Operation): OperationsImpl {
+    return new OperationsImpl(this.operations & ~operation);
+  }
 
-//   isRunning(operation: Operation): boolean {
-//     return (this.operations & operation) !== 0;
-//   }
+  isRunning(operation: Operation): boolean {
+    return (this.operations & operation) !== 0;
+  }
 
-//   isIdle(): boolean {
-//     return this.operations === 0;
-//   }
-// }
+  isIdle(): boolean {
+    return this.operations === 0;
+  }
+}
 
-// export interface CommitOptions {
-//   all?: boolean;
-//   amend?: boolean;
-//   signoff?: boolean;
-//   signCommit?: boolean;
-// }
+export interface CommitOptions {
+  all?: boolean;
+  amend?: boolean;
+  signoff?: boolean;
+  signCommit?: boolean;
+}
 
-export interface GitResourceGroup extends SourceControlResourceGroup {
+export interface BzrResourceGroup extends SourceControlResourceGroup {
   resourceStates: Resource[];
 }
 
@@ -300,14 +300,14 @@ export class Repository implements Disposable {
   private _onDidChangeState = new EventEmitter<RepositoryState>();
   readonly onDidChangeState: Event<RepositoryState> = this._onDidChangeState.event;
 
-  //   private _onDidChangeStatus = new EventEmitter<void>();
-  //   readonly onDidChangeStatus: Event<void> = this._onDidChangeStatus.event;
+  private _onDidChangeStatus = new EventEmitter<void>();
+  readonly onDidChangeStatus: Event<void> = this._onDidChangeStatus.event;
 
-  //   private _onRunOperation = new EventEmitter<Operation>();
-  //   readonly onRunOperation: Event<Operation> = this._onRunOperation.event;
+  private _onRunOperation = new EventEmitter<Operation>();
+  readonly onRunOperation: Event<Operation> = this._onRunOperation.event;
 
-  //   private _onDidRunOperation = new EventEmitter<Operation>();
-  //   readonly onDidRunOperation: Event<Operation> = this._onDidRunOperation.event;
+  private _onDidRunOperation = new EventEmitter<Operation>();
+  readonly onDidRunOperation: Event<Operation> = this._onDidRunOperation.event;
 
   //   @memoize
   //   get onDidChangeOperations(): Event<void> {
@@ -319,14 +319,11 @@ export class Repository implements Disposable {
 
   //   get inputBox(): SourceControlInputBox { return this._sourceControl.inputBox; }
 
-  private _mergeGroup: SourceControlResourceGroup;
-  get mergeGroup(): GitResourceGroup { return this._mergeGroup as GitResourceGroup; }
+  private _modifiedGroup: SourceControlResourceGroup;
+  get modifiedGroup(): BzrResourceGroup { return this._modifiedGroup as BzrResourceGroup; }
 
-  private _indexGroup: SourceControlResourceGroup;
-  get indexGroup(): GitResourceGroup { return this._indexGroup as GitResourceGroup; }
-
-  private _workingTreeGroup: SourceControlResourceGroup;
-  get workingTreeGroup(): GitResourceGroup { return this._workingTreeGroup as GitResourceGroup; }
+  private _unknownGroup: SourceControlResourceGroup;
+  get unknownGroup(): BzrResourceGroup { return this._unknownGroup as BzrResourceGroup; }
 
   //   private _HEAD: Branch | undefined;
   //   get HEAD(): Branch | undefined {
@@ -343,46 +340,44 @@ export class Repository implements Disposable {
   //     return this._remotes;
   //   }
 
-  //   private _operations = new OperationsImpl();
-  //   get operations(): Operations { return this._operations; }
+  private _operations = new OperationsImpl();
+  get operations(): Operations { return this._operations; }
 
-  //   private _state = RepositoryState.Idle;
-  //   get state(): RepositoryState { return this._state; }
-  //   set state(state: RepositoryState) {
-  //     this._state = state;
-  //     this._onDidChangeState.fire(state);
+  private _state = RepositoryState.Idle;
+  get state(): RepositoryState { return this._state; }
+  set state(state: RepositoryState) {
+    this._state = state;
+    this._onDidChangeState.fire(state);
 
-  //     this._HEAD = undefined;
-  //     this._refs = [];
-  //     this._remotes = [];
-  //     this.mergeGroup.resourceStates = [];
-  //     this.indexGroup.resourceStates = [];
-  //     this.workingTreeGroup.resourceStates = [];
-  //     this._sourceControl.count = 0;
-  //   }
+    //this._HEAD = undefined;
+    //this._refs = [];
+    //this._remotes = [];
+    this.modifiedGroup.resourceStates = [];
+    this.unknownGroup.resourceStates = [];
+    this._sourceControl.count = 0;
+  }
 
-    get root(): string {
-      return this.repository.root;
-    }
+  get root(): string {
+    return this.repository.root;
+  }
 
-  //   private isRepositoryHuge = false;
-  //   private didWarnAboutLimit = false;
+  private isRepositoryHuge = false;
+  private didWarnAboutLimit = false;
   private disposables: Disposable[] = [];
 
   constructor(
     private readonly repository: BaseRepository
   ) {
-    /*const fsWatcher = workspace.createFileSystemWatcher('**');
+    const fsWatcher = workspace.createFileSystemWatcher('**');
     this.disposables.push(fsWatcher);
 
     const onWorkspaceChange = anyEvent(fsWatcher.onDidChange, fsWatcher.onDidCreate, fsWatcher.onDidDelete);
     const onRepositoryChange = filterEvent(onWorkspaceChange, uri => !/^\.\./.test(path.relative(repository.root, uri.fsPath)));
-    const onRelevantRepositoryChange = filterEvent(onRepositoryChange, uri => !/\/\.git\/index\.lock$/.test(uri.path));
+    const onRelevantRepositoryChange = filterEvent(onRepositoryChange, uri => !/\/\.bzr\/*\/lock/.test(uri.path));
     onRelevantRepositoryChange(this.onFSChange, this, this.disposables);
 
-    const onRelevantGitChange = filterEvent(onRelevantRepositoryChange, uri => /\/\.git\//.test(uri.path));
-    onRelevantGitChange(this._onDidChangeRepository.fire, this._onDidChangeRepository, this.disposables);
-*/
+    const onRelevantBzrChange = filterEvent(onRelevantRepositoryChange, uri => /\/\.bzr\//.test(uri.path));
+    onRelevantBzrChange(this._onDidChangeRepository.fire, this._onDidChangeRepository, this.disposables);
 
     //const label = `${path.basename(repository.root)} (Bzr)`;
 
@@ -392,15 +387,13 @@ export class Repository implements Disposable {
     this.disposables.push(this._sourceControl);
 
     // this._mergeGroup = this._sourceControl.createResourceGroup('merge', localize('merge changes', "Merge Changes"));
-    // this._indexGroup = this._sourceControl.createResourceGroup('index', localize('staged changes', "Staged Changes"));
-    // this._workingTreeGroup = this._sourceControl.createResourceGroup('workingTree', localize('changes', "Changes"));
+    this._modifiedGroup = this._sourceControl.createResourceGroup('modified', localize('changes', "Changes"));
+    this._unknownGroup = this._sourceControl.createResourceGroup('unknown', localize('untracked unknown', "untracked Changes"));
 
-    // this.mergeGroup.hideWhenEmpty = true;
-    // this.indexGroup.hideWhenEmpty = true;
+    this._unknownGroup.hideWhenEmpty = true;
 
-    // this.disposables.push(this.mergeGroup);
-    // this.disposables.push(this.indexGroup);
-    // this.disposables.push(this.workingTreeGroup);
+    this.disposables.push(this.modifiedGroup);
+    this.disposables.push(this.unknownGroup);
 
     // this.disposables.push(new AutoFetcher(this));
 
@@ -410,7 +403,7 @@ export class Repository implements Disposable {
     // this._sourceControl.statusBarCommands = statusBar.commands;
 
     // this.updateCommitTemplate();
-    // this.status();
+    this.status();
   }
 
   //   provideOriginalResource(uri: Uri): Uri | undefined {
@@ -439,10 +432,10 @@ export class Repository implements Disposable {
   //   // 	await this.status();
   //   // }
 
-  //   @throttle
-  //   async status(): Promise<void> {
-  //     await this.run(Operation.Status);
-  //   }
+  @throttle
+  async status(): Promise<void> {
+    await this.run(Operation.Status);
+  }
 
   //   async add(resources: Uri[]): Promise<void> {
   //     await this.run(Operation.Add, () => this.repository.add(resources.map(r => r.fsPath)));
@@ -631,211 +624,201 @@ export class Repository implements Disposable {
   //     });
   //   }
 
-  //   private async run<T>(operation: Operation, runOperation: () => Promise<T> = () => Promise.resolve<any>(null)): Promise<T> {
-  //     if (this.state !== RepositoryState.Idle) {
-  //       throw new Error('Repository not initialized');
-  //     }
+  private async run<T>(operation: Operation, runOperation: () => Promise<T> = () => Promise.resolve<any>(null)): Promise<T> {
+    if (this.state !== RepositoryState.Idle) {
+      throw new Error('Repository not initialized');
+    }
 
-  //     const run = async () => {
-  //       this._operations = this._operations.start(operation);
-  //       this._onRunOperation.fire(operation);
+    const run = async () => {
+      this._operations = this._operations.start(operation);
+      this._onRunOperation.fire(operation);
 
-  //       try {
-  //         const result = await this.retryRun(runOperation);
+      try {
+        const result = await this.retryRun(runOperation);
 
-  //         if (!isReadOnly(operation)) {
-  //           await this.updateModelState();
-  //         }
+        if (!isReadOnly(operation)) {
+          await this.updateModelState();
+        }
 
-  //         return result;
-  //       } catch (err) {
-  //         if (err.gitErrorCode === GitErrorCodes.NotAGitRepository) {
-  //           this.state = RepositoryState.Disposed;
-  //         }
+        return result;
+      } catch (err) {
+        if (err.bzrErrorCode === BzrErrorCodes.NotABzrRepository) {
+          this.state = RepositoryState.Disposed;
+        }
 
-  //         throw err;
-  //       } finally {
-  //         this._operations = this._operations.end(operation);
-  //         this._onDidRunOperation.fire(operation);
-  //       }
-  //     };
+        throw err;
+      } finally {
+        this._operations = this._operations.end(operation);
+        this._onDidRunOperation.fire(operation);
+      }
+    };
 
-  //     return shouldShowProgress(operation)
-  //       ? window.withProgress({ location: ProgressLocation.SourceControl }, run)
-  //       : run();
-  //   }
+    return shouldShowProgress(operation)
+      ? window.withProgress({ location: ProgressLocation.SourceControl }, run)
+      : run();
+  }
 
-  //   private async retryRun<T>(runOperation: () => Promise<T> = () => Promise.resolve<any>(null)): Promise<T> {
-  //     let attempt = 0;
+  private async retryRun<T>(runOperation: () => Promise<T> = () => Promise.resolve<any>(null)): Promise<T> {
+    let attempt = 0;
 
-  //     while (true) {
-  //       try {
-  //         attempt++;
-  //         return await runOperation();
-  //       } catch (err) {
-  //         if (err.gitErrorCode === GitErrorCodes.RepositoryIsLocked && attempt <= 10) {
-  //           // quatratic backoff
-  //           await timeout(Math.pow(attempt, 2) * 50);
-  //         } else {
-  //           throw err;
-  //         }
-  //       }
-  //     }
-  //   }
+    while (true) {
+      try {
+        attempt++;
+        return await runOperation();
+      } catch (err) {
+        if (err.bzrErrorCode === BzrErrorCodes.RepositoryIsLocked && attempt <= 10) {
+          // quatratic backoff
+          await timeout(Math.pow(attempt, 2) * 50);
+        } else {
+          throw err;
+        }
+      }
+    }
+  }
 
-  //   @throttle
-  //   private async updateModelState(): Promise<void> {
-  //     const { status, didHitLimit } = await this.repository.getStatus();
-  //     const config = workspace.getConfiguration('git');
-  //     const shouldIgnore = config.get<boolean>('ignoreLimitWarning') === true;
+  @throttle
+  private async updateModelState(): Promise<void> {
+    const { status, didHitLimit } = await this.repository.getStatus();
+    const config = workspace.getConfiguration('bzr');
+    const shouldIgnore = config.get<boolean>('ignoreLimitWarning') === true;
 
-  //     this.isRepositoryHuge = didHitLimit;
+    this.isRepositoryHuge = didHitLimit;
 
-  //     if (didHitLimit && !shouldIgnore && !this.didWarnAboutLimit) {
-  //       const ok = { title: localize('ok', "OK"), isCloseAffordance: true };
-  //       const neverAgain = { title: localize('neveragain', "Never Show Again") };
+    if (didHitLimit && !shouldIgnore && !this.didWarnAboutLimit) {
+      const ok = { title: localize('ok', "OK"), isCloseAffordance: true };
+      const neverAgain = { title: localize('neveragain', "Never Show Again") };
 
-  //       window.showWarningMessage(localize('huge', "The git repository at '{0}' has too many active changes, only a subset of Git features will be enabled.", this.repository.root), ok, neverAgain).then(result => {
-  //         if (result === neverAgain) {
-  //           config.update('ignoreLimitWarning', true, false);
-  //         }
-  //       });
+      window.showWarningMessage(localize('huge', "The bzr repository at '{0}' has too many active changes, only a subset of Bzr features will be enabled.", this.repository.root), ok, neverAgain).then(result => {
+        if (result === neverAgain) {
+          config.update('ignoreLimitWarning', true, false);
+        }
+      });
 
-  //       this.didWarnAboutLimit = true;
-  //     }
+      this.didWarnAboutLimit = true;
+    }
 
-  //     let HEAD: Branch | undefined;
+    // let HEAD: Branch | undefined;
 
-  //     try {
-  //       HEAD = await this.repository.getHEAD();
+    // try {
+    //   HEAD = await this.repository.getHEAD();
 
-  //       if (HEAD.name) {
-  //         try {
-  //           HEAD = await this.repository.getBranch(HEAD.name);
-  //         } catch (err) {
-  //           // noop
-  //         }
-  //       }
-  //     } catch (err) {
-  //       // noop
-  //     }
+    //   if (HEAD.name) {
+    //     try {
+    //       HEAD = await this.repository.getBranch(HEAD.name);
+    //     } catch (err) {
+    //       // noop
+    //     }
+    //   }
+    // } catch (err) {
+    //   // noop
+    // }
 
-  //     const [refs, remotes] = await Promise.all([this.repository.getRefs(), this.repository.getRemotes()]);
+    // const [refs, remotes] = await Promise.all([this.repository.getRefs(), this.repository.getRemotes()]);
 
-  //     this._HEAD = HEAD;
-  //     this._refs = refs;
-  //     this._remotes = remotes;
+    // this._HEAD = HEAD;
+    // this._refs = refs;
+    // this._remotes = remotes;
 
-  //     const index: Resource[] = [];
-  //     const workingTree: Resource[] = [];
-  //     const merge: Resource[] = [];
+    const modified: Resource[] = [];
+    const unknown: Resource[] = [];
+    // const merge: Resource[] = [];
 
-  //     status.forEach(raw => {
-  //       const uri = Uri.file(path.join(this.repository.root, raw.path));
-  //       const renameUri = raw.rename ? Uri.file(path.join(this.repository.root, raw.rename)) : undefined;
+    status.forEach(raw => {    // this._refs = refs;
 
-  //       switch (raw.x + raw.y) {
-  //         case '??': return workingTree.push(new Resource(ResourceGroupType.WorkingTree, uri, Status.UNTRACKED));
-  //         case '!!': return workingTree.push(new Resource(ResourceGroupType.WorkingTree, uri, Status.IGNORED));
-  //         case 'DD': return merge.push(new Resource(ResourceGroupType.Merge, uri, Status.BOTH_DELETED));
-  //         case 'AU': return merge.push(new Resource(ResourceGroupType.Merge, uri, Status.ADDED_BY_US));
-  //         case 'UD': return merge.push(new Resource(ResourceGroupType.Merge, uri, Status.DELETED_BY_THEM));
-  //         case 'UA': return merge.push(new Resource(ResourceGroupType.Merge, uri, Status.ADDED_BY_THEM));
-  //         case 'DU': return merge.push(new Resource(ResourceGroupType.Merge, uri, Status.DELETED_BY_US));
-  //         case 'AA': return merge.push(new Resource(ResourceGroupType.Merge, uri, Status.BOTH_ADDED));
-  //         case 'UU': return merge.push(new Resource(ResourceGroupType.Merge, uri, Status.BOTH_MODIFIED));
-  //       }
+      const uri = Uri.file(path.join(this.repository.root, raw.path));
+      const renameUri = raw.rename ? Uri.file(path.join(this.repository.root, raw.rename)) : undefined;
 
-  //       let isModifiedInIndex = false;
+      switch (raw.x) {
+        case 'R': modified.push(new Resource(ResourceGroupType.Index, uri, Status.RENAMED, renameUri)); break;
+        case '+': modified.push(new Resource(ResourceGroupType.Index, uri, Status.ADDED)); break;
+        case '-': modified.push(new Resource(ResourceGroupType.Index, uri, Status.DELETED)); break;
+        case '?': unknown.push(new Resource(ResourceGroupType.WorkingTree, uri, Status.UNTRACKED)); break;
+      }
 
-  //       switch (raw.x) {
-  //         case 'M': index.push(new Resource(ResourceGroupType.Index, uri, Status.INDEX_MODIFIED)); isModifiedInIndex = true; break;
-  //         case 'A': index.push(new Resource(ResourceGroupType.Index, uri, Status.INDEX_ADDED)); break;
-  //         case 'D': index.push(new Resource(ResourceGroupType.Index, uri, Status.INDEX_DELETED)); break;
-  //         case 'R': index.push(new Resource(ResourceGroupType.Index, uri, Status.INDEX_RENAMED, renameUri)); break;
-  //         case 'C': index.push(new Resource(ResourceGroupType.Index, uri, Status.INDEX_COPIED, renameUri)); break;
-  //       }
+      switch (raw.y) {
+        case 'K': break;
+        case ' ': break;
+        case 'N': break;
+        case 'M': modified.push(new Resource(ResourceGroupType.WorkingTree, uri, Status.MODIFIED, renameUri)); break;
+        case 'D': break;
+        case '!': break;
+      }
+    });
 
-  //       switch (raw.y) {
-  //         case 'M': workingTree.push(new Resource(ResourceGroupType.WorkingTree, uri, Status.MODIFIED, renameUri)); break;
-  //         case 'D': workingTree.push(new Resource(ResourceGroupType.WorkingTree, uri, Status.DELETED, renameUri)); break;
-  //       }
-  //     });
+    // set resource groups
+    //this.mergeGroup.resourceStates = merge;
+    this.modifiedGroup.resourceStates = modified;
+    this.unknownGroup.resourceStates = unknown;
 
-  //     // set resource groups
-  //     this.mergeGroup.resourceStates = merge;
-  //     this.indexGroup.resourceStates = index;
-  //     this.workingTreeGroup.resourceStates = workingTree;
+    // set count badge
+    // const countBadge = workspace.getConfiguration('bzr').get<string>('countBadge');
+    let count = unknown.length + modified.length;
 
-  //     // set count badge
-  //     const countBadge = workspace.getConfiguration('git').get<string>('countBadge');
-  //     let count = merge.length + index.length + workingTree.length;
+    //switch (countBadge) {
+    //  case 'off': count = 0; break;
+    //  case 'tracked': count = count - modified.filter(r => r.type === Status.UNTRACKED || r.type === Status.IGNORED).length; break;
+    // }
 
-  //     switch (countBadge) {
-  //       case 'off': count = 0; break;
-  //       case 'tracked': count = count - workingTree.filter(r => r.type === Status.UNTRACKED || r.type === Status.IGNORED).length; break;
-  //     }
+    this._sourceControl.count = count;
 
-  //     this._sourceControl.count = count;
+    // set context key
+    let stateContextKey = '';
 
-  //     // set context key
-  //     let stateContextKey = '';
+    switch (this.state) {
+      case RepositoryState.Idle: stateContextKey = 'idle'; break;
+      case RepositoryState.Disposed: stateContextKey = 'norepo'; break;
+    }
 
-  //     switch (this.state) {
-  //       case RepositoryState.Idle: stateContextKey = 'idle'; break;
-  //       case RepositoryState.Disposed: stateContextKey = 'norepo'; break;
-  //     }
+    this._onDidChangeStatus.fire();
+  }
 
-  //     this._onDidChangeStatus.fire();
-  //   }
+  private onFSChange(uri: Uri): void {
+    const config = workspace.getConfiguration('bzr');
+    const autorefresh = config.get<boolean>('autorefresh');
 
-  //   private onFSChange(uri: Uri): void {
-  //     const config = workspace.getConfiguration('git');
-  //     const autorefresh = config.get<boolean>('autorefresh');
+    if (!autorefresh) {
+      return;
+    }
 
-  //     if (!autorefresh) {
-  //       return;
-  //     }
+    if (this.isRepositoryHuge) {
+      return;
+    }
 
-  //     if (this.isRepositoryHuge) {
-  //       return;
-  //     }
+    if (!this.operations.isIdle()) {
+      return;
+    }
 
-  //     if (!this.operations.isIdle()) {
-  //       return;
-  //     }
+    this.eventuallyUpdateWhenIdleAndWait();
+  }
 
-  //     this.eventuallyUpdateWhenIdleAndWait();
-  //   }
+  @debounce(1000)
+  private eventuallyUpdateWhenIdleAndWait(): void {
+    this.updateWhenIdleAndWait();
+  }
 
-  //   @debounce(1000)
-  //   private eventuallyUpdateWhenIdleAndWait(): void {
-  //     this.updateWhenIdleAndWait();
-  //   }
+  @throttle
+  private async updateWhenIdleAndWait(): Promise<void> {
+    await this.whenIdleAndFocused();
+    await this.status();
+    await timeout(5000);
+  }
 
-  //   @throttle
-  //   private async updateWhenIdleAndWait(): Promise<void> {
-  //     await this.whenIdleAndFocused();
-  //     await this.status();
-  //     await timeout(5000);
-  //   }
+  private async whenIdleAndFocused(): Promise<void> {
+    /*while (true) {
+      if (!this.operations.isIdle()) {
+        await eventToPromise(this.onDidRunOperation);
+        continue;
+      }
 
-  //   private async whenIdleAndFocused(): Promise<void> {
-  //     while (true) {
-  //       if (!this.operations.isIdle()) {
-  //         await eventToPromise(this.onDidRunOperation);
-  //         continue;
-  //       }
+      if (!window.state.focused) {
+        const onDidFocusWindow = filterEvent(window.onDidChangeWindowState, e => e.focused);
+        await eventToPromise(onDidFocusWindow);
+        continue;
+      }
 
-  //       if (!window.state.focused) {
-  //         const onDidFocusWindow = filterEvent(window.onDidChangeWindowState, e => e.focused);
-  //         await eventToPromise(onDidFocusWindow);
-  //         continue;
-  //       }
-
-  //       return;
-  //     }
-  //   }
+      return;
+    }*/
+  }
 
   dispose(): void {
     this.disposables = dispose(this.disposables);

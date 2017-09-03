@@ -67,7 +67,7 @@
                     "description": "%config.enabled%",
                     "default": true
                 },
-                "git.path": {
+                "bzr.path": {
                     "type": [
                         "string",
                         "null"
@@ -75,6 +75,26 @@
                     "description": "%config.path%",
                     "default": null,
                     "isExecutable": true
+                },
+                "bzr.autorefresh": {
+                    "type": "boolean",
+                    "description": "%config.autorefresh%",
+                    "default": true
+                },
+                "bzr.countBadge": {
+                    "type": "string",
+                    "enum": [
+                        "all",
+                        "tracked",
+                        "off"
+                    ],
+                    "description": "%config.countBadge%",
+                    "default": "all"
+                },
+                "bzr.ignoreLimitWarning": {
+                    "type": "boolean",
+                    "description": "%config.ignoreLimitWarning%",
+                    "default": false
                 }
             }
         }
