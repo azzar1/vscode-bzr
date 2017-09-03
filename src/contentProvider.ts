@@ -82,13 +82,6 @@ export class BzrContentProvider {
 
     let { path, ref } = fromBzrUri(uri);
 
-    /*if (ref === '~') {
-      const fileUri = Uri.file(path);
-      const uriString = fileUri.toString();
-      const [indexStatus] = repository.indexGroup.resourceStates.filter(r => r.original.toString() === uriString);
-      ref = indexStatus ? '' : 'HEAD';
-    }*/
-
     try {
       return await repository.cat(ref, path);
     } catch (err) {

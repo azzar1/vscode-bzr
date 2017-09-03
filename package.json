@@ -60,6 +60,20 @@
                     "light": "resources/icons/light/open-change.svg",
                     "dark": "resources/icons/dark/open-change.svg"
                 }
+            },
+            {
+                "command": "bzr.openFile",
+                "title": "%command.openFile%",
+                "category": "Bzr",
+                "icon": {
+                    "light": "resources/icons/light/open-file.svg",
+                    "dark": "resources/icons/dark/open-file.svg"
+                }
+            },
+            {
+                "command": "bzr.openHEADFile",
+                "title": "%command.openHEADFile%",
+                "category": "Bzr"
             }
         ],
         "menus": {
@@ -74,6 +88,14 @@
                 },
                 {
                     "command": "bzr.openChange",
+                    "when": "config.bzr.enabled && bzrOpenRepositoryCount != 0"
+                },
+                {
+                    "command": "bzr.openFile",
+                    "when": "config.bzr.enabled && bzrOpenRepositoryCount != 0"
+                },
+                {
+                    "command": "bzr.openHEADFile",
                     "when": "config.bzr.enabled && bzrOpenRepositoryCount != 0"
                 }
             ],
@@ -92,11 +114,26 @@
             "scm/resourceState/context": [
                 {
                     "command": "bzr.openChange",
-                    "when": "config.bzr.enabled && scmProvider == bzr",
+                    "when": "config.bzr.enabled && scmProvider == bzr  && scmResourceGroup == modified",
+                    "group": "navigation"
+                },
+                {
+                    "command": "bzr.openFile",
+                    "when": "config.bzr.enabled && scmProvider == bzr && scmResourceGroup == modified",
+                    "group": "navigation"
+                },
+                {
+                    "command": "bzr.openHEADFile",
+                    "when": "config.bzr.enabled && scmProvider == bzr && scmResourceGroup == modified",
                     "group": "navigation"
                 }
             ],
             "editor/title": [
+                {
+                    "command": "bzr.openFile",
+                    "group": "navigation",
+                    "when": "config.bzr.enabled && bzrOpenRepositoryCount != 0 && isInDiffEditor && resourceScheme != extension && resourceScheme != merge-conflict.conflict-diff"
+                },
                 {
                     "command": "bzr.openChange",
                     "group": "navigation",

@@ -281,78 +281,80 @@ export class CommandCenter {
     await this.model.tryOpenRepository(path);
   }
 
-  // @command('git.openFile')
-  // async openFile(arg?: Resource | Uri, ...resourceStates: SourceControlResourceState[]): Promise<void> {
-  //   const preserveFocus = arg instanceof Resource;
+  @command('bzr.openFile')
+  async openFile(arg?: Resource | Uri, ...resourceStates: SourceControlResourceState[]): Promise<void> {
+    const preserveFocus = arg instanceof Resource;
 
-  //   let uris: Uri[] | undefined;
+    let uris: Uri[] | undefined;
 
-  //   if (arg instanceof Uri) {
-  //     if (arg.scheme === 'git') {
-  //       uris = [Uri.file(fromGitUri(arg).path)];
-  //     } else if (arg.scheme === 'file') {
-  //       uris = [arg];
-  //     }
-  //   } else {
-  //     let resource = arg;
+    if (arg instanceof Uri) {
+      if (arg.scheme === 'bzr') {
+        uris = [Uri.file(fromBzrUri(arg).path)];
+      } else if (arg.scheme === 'file') {
+        uris = [arg];
+      }
+    } else {
+      let resource = arg;
 
-  //     if (!(resource instanceof Resource)) {
-  //       // can happen when called from a keybinding
-  //       resource = this.getSCMResource();
-  //     }
+      if (!(resource instanceof Resource)) {
+        // can happen when called from a keybinding
+        resource = this.getSCMResource();
+      }
 
-  //     if (resource) {
-  //       uris = [...resourceStates.map(r => r.resourceUri), resource.resourceUri];
-  //     }
-  //   }
+      if (resource) {
+        uris = [...resourceStates.map(r => r.resourceUri), resource.resourceUri];
+      }
+    }
 
-  //   if (!uris) {
-  //     return;
-  //   }
+    if (!uris) {
+      return;
+    }
 
-  //   const preview = uris.length === 1 ? true : false;
-  //   const activeTextEditor = window.activeTextEditor;
-  //   for (const uri of uris) {
-  //     const opts: TextDocumentShowOptions = {
-  //       preserveFocus,
-  //       preview: preview,
-  //       viewColumn: activeTextEditor && activeTextEditor.viewColumn || ViewColumn.One
-  //     };
+    const preview = uris.length === 1 ? true : false;
+    const activeTextEditor = window.activeTextEditor;
+    for (const uri of uris) {
+      const opts: TextDocumentShowOptions = {
+        preserveFocus,
+        preview: preview,
+        viewColumn: activeTextEditor && activeTextEditor.viewColumn || ViewColumn.One
+      };
 
-  //     if (activeTextEditor && activeTextEditor.document.uri.fsPath === uri.fsPath) {
-  //       opts.selection = activeTextEditor.selection;
-  //     }
+      if (activeTextEditor && activeTextEditor.document.uri.fsPath === uri.fsPath) {
+        opts.selection = activeTextEditor.selection;
+      }
 
-  //     const document = await workspace.openTextDocument(uri);
-  //     await window.showTextDocument(document, opts);
-  //   }
-  // }
+      const document = await workspace.openTextDocument(uri);
+      await window.showTextDocument(document, opts);
+    }
+  }
 
-  // @command('git.openHEADFile')
-  // async openHEADFile(arg?: Resource | Uri): Promise<void> {
-  //   let resource: Resource | undefined = undefined;
+  @command('bzr.openHEADFile')
+  async openHEADFile(arg?: Resource | Uri): Promise<void> {
+    let resource: Resource | undefined = undefined;
 
-  //   if (arg instanceof Resource) {
-  //     resource = arg;
-  //   } else if (arg instanceof Uri) {
-  //     resource = this.getSCMResource(arg);
-  //   } else {
-  //     resource = this.getSCMResource();
-  //   }
+    if (arg instanceof Resource) {
+      resource = arg;
+    } else if (arg instanceof Uri) {
+      resource = this.getSCMResource(arg);
+    } else {
+      resource = this.getSCMResource();
+    }
 
-  //   if (!resource) {
-  //     return;
-  //   }
+    if (!resource) {
+      return;
+    }
 
-  //   const HEAD = this.getLeftResource(resource);
+    const HEAD = this.getLeftResource(resource);
 
-  //   if (!HEAD) {
-  //     window.showWarningMessage(localize('HEAD not available', "HEAD version of '{0}' is not available.", path.basename(resource.resourceUri.fsPath)));
-  //     return;
-  //   }
+    if (!HEAD) {
+      window.showWarningMessage(localize('Last revision not available', "Last revision version of '{0}' is not available.", path.basename(resource.resourceUri.fsPath)));
+      return;
+    }
 
-  //   return await commands.executeCommand<void>('vscode.open', HEAD);
-  // }
+    // FIXME(azzar1): add "(last revision)" to the name of the file
+    const document = await workspace.openTextDocument(HEAD);
+    await window.showTextDocument(document);
+  }
 
   @command('bzr.openChange')
   async openChange(arg?: Resource | Uri, ...resourceStates: SourceControlResourceState[]): Promise<void> {
