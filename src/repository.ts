@@ -153,10 +153,10 @@ export class Resource implements SourceControlResourceState {
   private get strikeThrough(): boolean {
     switch (this.type) {
       case Status.DELETED:
-      //case Status.BOTH_DELETED:
-      //case Status.DELETED_BY_THEM:
-      //case Status.DELETED_BY_US:
-      //case Status.INDEX_DELETED:
+        //case Status.BOTH_DELETED:
+        //case Status.DELETED_BY_THEM:
+        //case Status.DELETED_BY_US:
+        //case Status.INDEX_DELETED:
         return true;
       default:
         return false;
@@ -190,7 +190,8 @@ export class Resource implements SourceControlResourceState {
 }
 
 export enum Operation {
-  Status = 1 << 0
+  Status = 1 << 0,
+  Cat = 1 << 1
   // Add = 1 << 1,
   // RevertFiles = 1 << 2,
   // Commit = 1 << 3,
@@ -236,9 +237,9 @@ export enum Operation {
 
 function isReadOnly(operation: Operation): boolean {
   switch (operation) {
-    //case Operation.Show:
+    case Operation.Cat:
     //case Operation.GetCommitTemplate:
-    //  return true;
+      return true;
     default:
       return false;
   }
@@ -576,15 +577,15 @@ export class Repository implements Disposable {
   //     });
   //   }
 
-  //   async show(ref: string, filePath: string): Promise<string> {
-  //     return await this.run(Operation.Show, async () => {
-  //       const relativePath = path.relative(this.repository.root, filePath).replace(/\\/g, '/');
-  //       const configFiles = workspace.getConfiguration('files');
-  //       const encoding = configFiles.get<string>('encoding');
+    async cat(ref: string, filePath: string): Promise<string> {
+      return await this.run(Operation.Cat, async () => {
+        const relativePath = path.relative(this.repository.root, filePath).replace(/\\/g, '/');
+        const configFiles = workspace.getConfiguration('files');
+        const encoding = configFiles.get<string>('encoding');
 
-  //       return await this.repository.buffer(`${ref}:${relativePath}`, encoding);
-  //     });
-  //   }
+        return await this.repository.buffer(relativePath, ref, encoding);
+      });
+    }
 
   //   async getStashes(): Promise<Stash[]> {
   //     return await this.repository.getStashes();
@@ -749,6 +750,7 @@ export class Repository implements Disposable {
     //this.mergeGroup.resourceStates = merge;
     this.modifiedGroup.resourceStates = modified;
     this.unknownGroup.resourceStates = unknown;
+    //this.modifiedGroup.yellow = modified;
 
     // set count badge
     // const countBadge = workspace.getConfiguration('bzr').get<string>('countBadge');
@@ -762,12 +764,12 @@ export class Repository implements Disposable {
     this._sourceControl.count = count;
 
     // set context key
-    let stateContextKey = '';
+    //let stateContextKey = '';
 
-    switch (this.state) {
-      case RepositoryState.Idle: stateContextKey = 'idle'; break;
-      case RepositoryState.Disposed: stateContextKey = 'norepo'; break;
-    }
+    //switch (this.state) {
+      //case RepositoryState.Idle: stateContextKey = 'idle'; break;
+      //case RepositoryState.Disposed: stateContextKey = 'norepo'; break;
+    //}
 
     this._onDidChangeStatus.fire();
   }

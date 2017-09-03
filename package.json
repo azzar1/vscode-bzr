@@ -42,6 +42,24 @@
                     "light": "resources/icons/light/bzr.svg",
                     "dark": "resources/icons/dark/bzr.svg"
                 }
+            },
+            {
+                "command": "bzr.refresh",
+                "title": "%command.refresh%",
+                "category": "Bzr",
+                "icon": {
+                    "light": "resources/icons/light/refresh.svg",
+                    "dark": "resources/icons/dark/refresh.svg"
+                }
+            },
+            {
+                "command": "bzr.openChange",
+                "title": "%command.openChange%",
+                "category": "Bzr",
+                "icon": {
+                    "light": "resources/icons/light/open-change.svg",
+                    "dark": "resources/icons/dark/open-change.svg"
+                }
             }
         ],
         "menus": {
@@ -49,6 +67,14 @@
                 {
                     "command": "bzr.init",
                     "when": "config.bzr.enabled"
+                },
+                {
+                    "command": "bzr.refresh",
+                    "when": "config.bzr.enabled && bzrOpenRepositoryCount != 0"
+                },
+                {
+                    "command": "bzr.openChange",
+                    "when": "config.bzr.enabled && bzrOpenRepositoryCount != 0"
                 }
             ],
             "scm/title": [
@@ -56,6 +82,25 @@
                     "command": "bzr.init",
                     "group": "navigation",
                     "when": "config.bzr.enabled && !scmProvider && bzrOpenRepositoryCount == 0"
+                },
+                {
+                    "command": "bzr.refresh",
+                    "group": "navigation",
+                    "when": "config.bzr.enabled && scmProvider == bzr"
+                }
+            ],
+            "scm/resourceState/context": [
+                {
+                    "command": "bzr.openChange",
+                    "when": "config.bzr.enabled && scmProvider == bzr",
+                    "group": "navigation"
+                }
+            ],
+            "editor/title": [
+                {
+                    "command": "bzr.openChange",
+                    "group": "navigation",
+                    "when": "config.bzr.enabled && bzrOpenRepositoryCount != 0 && !isInDiffEditor && resourceScheme != extension"
                 }
             ]
         },

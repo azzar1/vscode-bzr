@@ -8,11 +8,11 @@
 
 import { Uri, commands, Disposable, window, workspace, QuickPickItem, OutputChannel, Range, WorkspaceEdit, Position/*, LineChange*/, SourceControlResourceState, TextDocumentShowOptions, ViewColumn, ProgressLocation } from 'vscode';
 import { /*Ref, RefType,*/ Bzr, BzrErrorCodes/*, Branch*/ } from './bzr';
-import { Repository /*, Resource, Status, CommitOptions, ResourceGroupType*/ } from './repository';
+import { Repository , Resource, Status /*, CommitOptions, ResourceGroupType*/ } from './repository';
 import { Model } from './model';
-// import { toGitUri, fromGitUri } from './uri';
+import { toBzrUri, fromBzrUri } from './uri';
 // import { applyLineChanges, intersectDiffWithRange, toLineRanges, invertLineChange } from './staging';
-// import * as path from 'path';
+import * as path from 'path';
 import * as os from 'os';
 // import TelemetryReporter from 'vscode-extension-telemetry';
 import * as nls from 'vscode-nls';
@@ -146,116 +146,66 @@ export class CommandCenter {
     });
   }
 
-  // @command('git.refresh', { repository: true })
-  // async refresh(repository: Repository): Promise<void> {
-  //   await repository.status();
-  // }
+  @command('bzr.refresh', { repository: true })
+  async refresh(repository: Repository): Promise<void> {
+    await repository.status();
+  }
 
-  // @command('git.openResource')
-  // async openResource(resource: Resource): Promise<void> {
-  //   await this._openResource(resource, undefined, true, false);
-  // }
+  @command('bzr.openResource')
+  async openResource(resource: Resource): Promise<void> {
+    await this._openResource(resource, undefined, true, false);
+  }
 
-  // private async _openResource(resource: Resource, preview?: boolean, preserveFocus?: boolean, preserveSelection?: boolean): Promise<void> {
-  //   const left = this.getLeftResource(resource);
-  //   const right = this.getRightResource(resource);
-  //   const title = this.getTitle(resource);
+  private async _openResource(resource: Resource, preview?: boolean, preserveFocus?: boolean, preserveSelection?: boolean): Promise<void> {
+    const left = this.getLeftResource(resource);
+    const right = this.getRightResource(resource);
+    const title = this.getTitle(resource);
 
-  //   if (!right) {
-  //     // TODO
-  //     console.error('oh no');
-  //     return;
-  //   }
+    if (!right) {
+      // TODO
+      console.error('oh no');
+      return;
+    }
 
-  //   const opts: TextDocumentShowOptions = {
-  //     preserveFocus,
-  //     preview,
-  //     viewColumn: window.activeTextEditor && window.activeTextEditor.viewColumn || ViewColumn.One
-  //   };
+    const opts: TextDocumentShowOptions = {
+      preserveFocus,
+      preview,
+      viewColumn: window.activeTextEditor && window.activeTextEditor.viewColumn || ViewColumn.One
+    };
 
-  //   const activeTextEditor = window.activeTextEditor;
+    const activeTextEditor = window.activeTextEditor;
 
-  //   if (preserveSelection && activeTextEditor && activeTextEditor.document.uri.fsPath === right.fsPath) {
-  //     opts.selection = activeTextEditor.selection;
-  //   }
+    if (preserveSelection && activeTextEditor && activeTextEditor.document.uri.fsPath === right.fsPath) {
+      opts.selection = activeTextEditor.selection;
+    }
 
-  //   if (!left) {
-  //     const document = await workspace.openTextDocument(right);
-  //     await window.showTextDocument(document, opts);
-  //     return;
-  //   }
+    if (!left) {
+      const document = await workspace.openTextDocument(right);
+      await window.showTextDocument(document, opts);
+      return;
+    }
 
-  //   return await commands.executeCommand<void>('vscode.diff', left, right, title, opts);
-  // }
+    return await commands.executeCommand<void>('vscode.diff', left, right, title, opts);
+  }
 
-  // private getLeftResource(resource: Resource): Uri | undefined {
-  //   switch (resource.type) {
-  //     case Status.INDEX_MODIFIED:
-  //     case Status.INDEX_RENAMED:
-  //       return toGitUri(resource.original, 'HEAD');
+  private getLeftResource(resource: Resource): Uri | undefined {
+    switch (resource.type) {
+      case Status.MODIFIED:
+      case Status.RENAMED:
+        return toBzrUri(resource.original, 'last:1');
+      case Status.DELETED:
+        return toBzrUri(resource.resourceUri, 'last:1');
+    }
+  }
 
-  //     case Status.MODIFIED:
-  //       return toGitUri(resource.resourceUri, '~');
+  private getRightResource(resource: Resource): Uri | undefined {
+    return resource.resourceUri;
+  }
 
-  //     case Status.DELETED_BY_THEM:
-  //       return toGitUri(resource.resourceUri, '');
-  //   }
-  // }
-
-  // private getRightResource(resource: Resource): Uri | undefined {
-  //   switch (resource.type) {
-  //     case Status.INDEX_MODIFIED:
-  //     case Status.INDEX_ADDED:
-  //     case Status.INDEX_COPIED:
-  //     case Status.INDEX_RENAMED:
-  //       return toGitUri(resource.resourceUri, '');
-
-  //     case Status.INDEX_DELETED:
-  //     case Status.DELETED_BY_THEM:
-  //     case Status.DELETED:
-  //       return toGitUri(resource.resourceUri, 'HEAD');
-
-  //     case Status.MODIFIED:
-  //     case Status.UNTRACKED:
-  //     case Status.IGNORED:
-  //       const repository = this.model.getRepository(resource.resourceUri);
-
-  //       if (!repository) {
-  //         return;
-  //       }
-
-  //       const uriString = resource.resourceUri.toString();
-  //       const [indexStatus] = repository.indexGroup.resourceStates.filter(r => r.resourceUri.toString() === uriString);
-
-  //       if (indexStatus && indexStatus.renameResourceUri) {
-  //         return indexStatus.renameResourceUri;
-  //       }
-
-  //       return resource.resourceUri;
-
-  //     case Status.BOTH_ADDED:
-  //     case Status.BOTH_MODIFIED:
-  //       return resource.resourceUri;
-  //   }
-  // }
-
-  // private getTitle(resource: Resource): string {
-  //   const basename = path.basename(resource.resourceUri.fsPath);
-
-  //   switch (resource.type) {
-  //     case Status.INDEX_MODIFIED:
-  //     case Status.INDEX_RENAMED:
-  //     case Status.DELETED_BY_THEM:
-  //       return `${basename} (Index)`;
-
-  //     case Status.MODIFIED:
-  //     case Status.BOTH_ADDED:
-  //     case Status.BOTH_MODIFIED:
-  //       return `${basename} (Working Tree)`;
-  //   }
-
-  //   return '';
-  // }
+  private getTitle(resource: Resource): string {
+    const basename = path.basename(resource.resourceUri.fsPath);
+    return `${basename} (Diff)`;
+  }
 
   // @command('git.clone')
   // async clone(): Promise<void> {
@@ -404,40 +354,40 @@ export class CommandCenter {
   //   return await commands.executeCommand<void>('vscode.open', HEAD);
   // }
 
-  // @command('git.openChange')
-  // async openChange(arg?: Resource | Uri, ...resourceStates: SourceControlResourceState[]): Promise<void> {
-  //   const preserveFocus = arg instanceof Resource;
-  //   const preserveSelection = arg instanceof Uri || !arg;
-  //   let resources: Resource[] | undefined = undefined;
+  @command('bzr.openChange')
+  async openChange(arg?: Resource | Uri, ...resourceStates: SourceControlResourceState[]): Promise<void> {
+    const preserveFocus = arg instanceof Resource;
+    const preserveSelection = arg instanceof Uri || !arg;
+    let resources: Resource[] | undefined = undefined;
 
-  //   if (arg instanceof Uri) {
-  //     const resource = this.getSCMResource(arg);
-  //     if (resource !== undefined) {
-  //       resources = [resource];
-  //     }
-  //   } else {
-  //     let resource: Resource | undefined = undefined;
+    if (arg instanceof Uri) {
+      const resource = this.getSCMResource(arg);
+      if (resource !== undefined) {
+        resources = [resource];
+      }
+    } else {
+      let resource: Resource | undefined = undefined;
 
-  //     if (arg instanceof Resource) {
-  //       resource = arg;
-  //     } else {
-  //       resource = this.getSCMResource();
-  //     }
+      if (arg instanceof Resource) {
+        resource = arg;
+      } else {
+        resource = this.getSCMResource();
+      }
 
-  //     if (resource) {
-  //       resources = [...resourceStates as Resource[], resource];
-  //     }
-  //   }
+      if (resource) {
+        resources = [...resourceStates as Resource[], resource];
+      }
+    }
 
-  //   if (!resources) {
-  //     return;
-  //   }
+    if (!resources) {
+      return;
+    }
 
-  //   const preview = resources.length === 1 ? undefined : false;
-  //   for (const resource of resources) {
-  //     await this._openResource(resource, preview, preserveFocus, preserveSelection);
-  //   }
-  // }
+    const preview = resources.length === 1 ? undefined : false;
+    for (const resource of resources) {
+      await this._openResource(resource, preview, preserveFocus, preserveSelection);
+    }
+  }
 
   // @command('git.stage')
   // async stage(...resourceStates: SourceControlResourceState[]): Promise<void> {
@@ -1351,30 +1301,30 @@ export class CommandCenter {
     return result;
   }
 
-  // private getSCMResource(uri?: Uri): Resource | undefined {
-  //   uri = uri ? uri : window.activeTextEditor && window.activeTextEditor.document.uri;
+  private getSCMResource(uri?: Uri): Resource | undefined {
+    uri = uri ? uri : window.activeTextEditor && window.activeTextEditor.document.uri;
 
-  //   if (!uri) {
-  //     return undefined;
-  //   }
+    if (!uri) {
+      return undefined;
+    }
 
-  //   if (uri.scheme === 'git') {
-  //     const { path } = fromGitUri(uri);
-  //     uri = Uri.file(path);
-  //   }
+    if (uri.scheme === 'bzr') {
+      const { path } = fromBzrUri(uri);
+      uri = Uri.file(path);
+    }
 
-  //   if (uri.scheme === 'file') {
-  //     const uriString = uri.toString();
-  //     const repository = this.model.getRepository(uri);
+    if (uri.scheme === 'file') {
+      const uriString = uri.toString();
+      const repository = this.model.getRepository(uri);
 
-  //     if (!repository) {
-  //       return undefined;
-  //     }
+      if (!repository) {
+        return undefined;
+      }
 
-  //     return repository.workingTreeGroup.resourceStates.filter(r => r.resourceUri.toString() === uriString)[0]
-  //       || repository.indexGroup.resourceStates.filter(r => r.resourceUri.toString() === uriString)[0];
-  //   }
-  // }
+      return repository.modifiedGroup.resourceStates.filter(r => r.resourceUri.toString() === uriString)[0]
+        || repository.unknownGroup.resourceStates.filter(r => r.resourceUri.toString() === uriString)[0];
+    }
+  }
 
   // private runByRepository<T>(resource: Uri, fn: (repository: Repository, resource: Uri) => Promise<T>): Promise<T[]>;
   // private runByRepository<T>(resources: Uri[], fn: (repository: Repository, resources: Uri[]) => Promise<T>): Promise<T[]>;

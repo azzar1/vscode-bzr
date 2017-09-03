@@ -329,8 +329,6 @@ export class BzrStatusParser {
     let i = 0;
     let nextI: number | undefined;
 
-    console.log(raw);
-
     raw = this.lastRaw + raw;
 
     while ((nextI = this.parseEntry(raw, i)) !== undefined) {
@@ -408,6 +406,25 @@ export class Repository {
 
   stream(args: string[], options: any = {}): cp.ChildProcess {
     return this.bzr.stream(this.repositoryRoot, args, options);
+  }
+
+  async buffer(object: string, ref: string, encoding: string = 'utf8'): Promise<string> {
+    const child = this.stream(['cat', object, '-r', ref]);
+
+    if (!child.stdout) {
+      return Promise.reject<string>('Can\'t open file from bzr');
+    }
+
+    const { exitCode, stdout } = await exec(child, { encoding });
+
+    if (exitCode) {
+      return Promise.reject<string>(new BzrError({
+        message: 'Could not show object.',
+        exitCode
+      }));
+    }
+
+    return stdout;
   }
 
   getStatus(limit = 5000): Promise<{ status: IFileStatus[]; didHitLimit: boolean; }> {
