@@ -192,7 +192,8 @@ export class Resource implements SourceControlResourceState {
 export enum Operation {
   Status = 1 << 0,
   Cat = 1 << 1,
-  Add = 1 << 2
+  Add = 1 << 2,
+  Remove = 1 << 3
   // RevertFiles = 1 << 2,
   // Commit = 1 << 3,
   // Clean = 1 << 4,
@@ -442,10 +443,9 @@ export class Repository implements Disposable {
     await this.run(Operation.Add, () => this.repository.add(resources.map(r => r.fsPath)));
   }
 
-  //   async stage(resource: Uri, contents: string): Promise<void> {
-  //     const relativePath = path.relative(this.repository.root, resource.fsPath).replace(/\\/g, '/');
-  //     await this.run(Operation.Stage, () => this.repository.stage(relativePath, contents));
-  //   }
+  async remove(resources: Uri[]): Promise<void> {
+    await this.run(Operation.Remove, () => this.repository.remove(resources.map(r => r.fsPath)));
+  }
 
   //   async revert(resources: Uri[]): Promise<void> {
   //     await this.run(Operation.RevertFiles, () => this.repository.revert('HEAD', resources.map(r => r.fsPath)));

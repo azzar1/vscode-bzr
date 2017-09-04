@@ -8,7 +8,7 @@
 
 import { Uri, commands, Disposable, window, workspace, QuickPickItem, OutputChannel, Range, WorkspaceEdit, Position/*, LineChange*/, SourceControlResourceState, TextDocumentShowOptions, ViewColumn, ProgressLocation } from 'vscode';
 import { /*Ref, RefType,*/ Bzr, BzrErrorCodes/*, Branch*/ } from './bzr';
-import { Repository, Resource, Status , /*CommitOptions,*/ ResourceGroupType } from './repository';
+import { Repository, Resource, Status, /*CommitOptions,*/ ResourceGroupType } from './repository';
 import { Model } from './model';
 import { toBzrUri, fromBzrUri } from './uri';
 // import { applyLineChanges, intersectDiffWithRange, toLineRanges, invertLineChange } from './staging';
@@ -496,28 +496,28 @@ export class CommandCenter {
   //   workspace.applyEdit(edit);
   // }
 
-  // @command('git.unstage')
-  // async unstage(...resourceStates: SourceControlResourceState[]): Promise<void> {
-  //   if (resourceStates.length === 0 || !(resourceStates[0].resourceUri instanceof Uri)) {
-  //     const resource = this.getSCMResource();
+  @command('bzr.remove')
+  async remove(...resourceStates: SourceControlResourceState[]): Promise<void> {
+    if (resourceStates.length === 0 || !(resourceStates[0].resourceUri instanceof Uri)) {
+      const resource = this.getSCMResource();
 
-  //     if (!resource) {
-  //       return;
-  //     }
+      if (!resource) {
+        return;
+      }
 
-  //     resourceStates = [resource];
-  //   }
+      resourceStates = [resource];
+    }
 
-  //   const scmResources = resourceStates
-  //     .filter(s => s instanceof Resource && s.resourceGroupType === ResourceGroupType.Index) as Resource[];
+    const scmResources = resourceStates
+      .filter(s => s instanceof Resource && s.resourceGroupType === ResourceGroupType.TrackedTree) as Resource[];
 
-  //   if (!scmResources.length) {
-  //     return;
-  //   }
+    if (!scmResources.length) {
+      return;
+    }
 
-  //   const resources = scmResources.map(r => r.resourceUri);
-  //   await this.runByRepository(resources, async (repository, resources) => repository.revert(resources));
-  // }
+    const resources = scmResources.map(r => r.resourceUri);
+    await this.runByRepository(resources, async (repository, resources) => repository.remove(resources));
+  }
 
   // @command('git.unstageAll', { repository: true })
   // async unstageAll(repository: Repository): Promise<void> {

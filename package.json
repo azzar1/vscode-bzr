@@ -97,6 +97,11 @@
                     "light": "resources/icons/light/stage.svg",
                     "dark": "resources/icons/dark/stage.svg"
                 }
+            },
+            {
+                "command": "bzr.remove",
+                "title": "%command.remove%",
+                "category": "Bzr"
             }
         ],
         "menus": {

@@ -454,6 +454,18 @@ export class Repository {
     await this.run(args);
   }
 
+  async remove(paths: string[]): Promise<void> {
+    const args = ['remove', '--keep'];
+
+    if (paths && paths.length) {
+      args.push.apply(args, paths);
+    } else {
+      args.push('.');
+    }
+
+    await this.run(args);
+  }
+
   getStatus(limit = 5000): Promise<{ status: IFileStatus[]; didHitLimit: boolean; }> {
     return new Promise<{ status: IFileStatus[]; didHitLimit: boolean; }>((c, e) => {
       const parser = new BzrStatusParser();

@@ -8,6 +8,7 @@
   "command.openHEADFile": "Open File (Last Revision)",
   "command.add": "Track File",
   "command.addAll": "Track All Files",
+  "command.remove": "Stop Tracking File",
   // "command.stageSelectedRanges": "Stage Selected Ranges",
   // "command.revertSelectedRanges": "Revert Selected Ranges",
   // "command.unstage": "Unstage Changes",
