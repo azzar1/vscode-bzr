@@ -53,9 +53,9 @@ export enum Status {
 }
 
 export enum ResourceGroupType {
-  Merge,
-  Index,
-  WorkingTree
+  //Merge,
+  TrackedTree,
+  UntrackedTree
 }
 
 export class Resource implements SourceControlResourceState {
@@ -191,8 +191,8 @@ export class Resource implements SourceControlResourceState {
 
 export enum Operation {
   Status = 1 << 0,
-  Cat = 1 << 1
-  // Add = 1 << 1,
+  Cat = 1 << 1,
+  Add = 1 << 2
   // RevertFiles = 1 << 2,
   // Commit = 1 << 3,
   // Clean = 1 << 4,
@@ -238,7 +238,7 @@ export enum Operation {
 function isReadOnly(operation: Operation): boolean {
   switch (operation) {
     case Operation.Cat:
-    //case Operation.GetCommitTemplate:
+      //case Operation.GetCommitTemplate:
       return true;
     default:
       return false;
@@ -438,9 +438,9 @@ export class Repository implements Disposable {
     await this.run(Operation.Status);
   }
 
-  //   async add(resources: Uri[]): Promise<void> {
-  //     await this.run(Operation.Add, () => this.repository.add(resources.map(r => r.fsPath)));
-  //   }
+  async add(resources: Uri[]): Promise<void> {
+    await this.run(Operation.Add, () => this.repository.add(resources.map(r => r.fsPath)));
+  }
 
   //   async stage(resource: Uri, contents: string): Promise<void> {
   //     const relativePath = path.relative(this.repository.root, resource.fsPath).replace(/\\/g, '/');
@@ -577,15 +577,15 @@ export class Repository implements Disposable {
   //     });
   //   }
 
-    async cat(ref: string, filePath: string): Promise<string> {
-      return await this.run(Operation.Cat, async () => {
-        const relativePath = path.relative(this.repository.root, filePath).replace(/\\/g, '/');
-        const configFiles = workspace.getConfiguration('files');
-        const encoding = configFiles.get<string>('encoding');
+  async cat(ref: string, filePath: string): Promise<string> {
+    return await this.run(Operation.Cat, async () => {
+      const relativePath = path.relative(this.repository.root, filePath).replace(/\\/g, '/');
+      const configFiles = workspace.getConfiguration('files');
+      const encoding = configFiles.get<string>('encoding');
 
-        return await this.repository.buffer(relativePath, ref, encoding);
-      });
-    }
+      return await this.repository.buffer(relativePath, ref, encoding);
+    });
+  }
 
   //   async getStashes(): Promise<Stash[]> {
   //     return await this.repository.getStashes();
@@ -730,17 +730,17 @@ export class Repository implements Disposable {
       const renameUri = raw.rename ? Uri.file(path.join(this.repository.root, raw.rename)) : undefined;
 
       switch (raw.x) {
-        case 'R': modified.push(new Resource(ResourceGroupType.Index, uri, Status.RENAMED, renameUri)); break;
-        case '+': modified.push(new Resource(ResourceGroupType.Index, uri, Status.ADDED)); break;
-        case '-': modified.push(new Resource(ResourceGroupType.Index, uri, Status.DELETED)); break;
-        case '?': unknown.push(new Resource(ResourceGroupType.WorkingTree, uri, Status.UNTRACKED)); break;
+        case 'R': modified.push(new Resource(ResourceGroupType.TrackedTree, uri, Status.RENAMED, renameUri)); break;
+        case '+': modified.push(new Resource(ResourceGroupType.TrackedTree, uri, Status.ADDED)); break;
+        case '-': modified.push(new Resource(ResourceGroupType.TrackedTree, uri, Status.DELETED)); break;
+        case '?': unknown.push(new Resource(ResourceGroupType.UntrackedTree, uri, Status.UNTRACKED)); break;
       }
 
       switch (raw.y) {
         case 'K': break;
         case ' ': break;
         case 'N': break;
-        case 'M': modified.push(new Resource(ResourceGroupType.WorkingTree, uri, Status.MODIFIED, renameUri)); break;
+        case 'M': modified.push(new Resource(ResourceGroupType.TrackedTree, uri, Status.MODIFIED, renameUri)); break;
         case 'D': break;
         case '!': break;
       }
@@ -767,8 +767,8 @@ export class Repository implements Disposable {
     //let stateContextKey = '';
 
     //switch (this.state) {
-      //case RepositoryState.Idle: stateContextKey = 'idle'; break;
-      //case RepositoryState.Disposed: stateContextKey = 'norepo'; break;
+    //case RepositoryState.Idle: stateContextKey = 'idle'; break;
+    //case RepositoryState.Disposed: stateContextKey = 'norepo'; break;
     //}
 
     this._onDidChangeStatus.fire();

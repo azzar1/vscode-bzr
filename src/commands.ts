@@ -8,7 +8,7 @@
 
 import { Uri, commands, Disposable, window, workspace, QuickPickItem, OutputChannel, Range, WorkspaceEdit, Position/*, LineChange*/, SourceControlResourceState, TextDocumentShowOptions, ViewColumn, ProgressLocation } from 'vscode';
 import { /*Ref, RefType,*/ Bzr, BzrErrorCodes/*, Branch*/ } from './bzr';
-import { Repository, Resource, Status /*, CommitOptions, ResourceGroupType*/ } from './repository';
+import { Repository, Resource, Status , /*CommitOptions,*/ ResourceGroupType } from './repository';
 import { Model } from './model';
 import { toBzrUri, fromBzrUri } from './uri';
 // import { applyLineChanges, intersectDiffWithRange, toLineRanges, invertLineChange } from './staging';
@@ -388,46 +388,48 @@ export class CommandCenter {
     }
   }
 
-  // @command('git.stage')
-  // async stage(...resourceStates: SourceControlResourceState[]): Promise<void> {
-  //   if (resourceStates.length === 0 || !(resourceStates[0].resourceUri instanceof Uri)) {
-  //     const resource = this.getSCMResource();
+  @command('bzr.add')
+  async add(...resourceStates: SourceControlResourceState[]): Promise<void> {
+    if (resourceStates.length === 0 || !(resourceStates[0].resourceUri instanceof Uri)) {
+      const resource = this.getSCMResource();
 
-  //     if (!resource) {
-  //       return;
-  //     }
+      if (!resource) {
+        return;
+      }
 
-  //     resourceStates = [resource];
-  //   }
+      resourceStates = [resource];
+    }
 
-  //   const selection = resourceStates.filter(s => s instanceof Resource) as Resource[];
-  //   const mergeConflicts = selection.filter(s => s.resourceGroupType === ResourceGroupType.Merge);
+    const selection = resourceStates.filter(s => s instanceof Resource) as Resource[];
 
-  //   if (mergeConflicts.length > 0) {
-  //     const message = mergeConflicts.length > 1
-  //       ? localize('confirm stage files with merge conflicts', "Are you sure you want to stage {0} files with merge conflicts?", mergeConflicts.length)
-  //       : localize('confirm stage file with merge conflicts', "Are you sure you want to stage {0} with merge conflicts?", path.basename(mergeConflicts[0].resourceUri.fsPath));
+    // FIXME (azzar1): do we want this with bzr? Consider after we implmenet support for merge!
+    //const mergeConflicts = selection.filter(s => s.resourceGroupType === ResourceGroupType.Merge);
 
-  //     const yes = localize('yes', "Yes");
-  //     const pick = await window.showWarningMessage(message, { modal: true }, yes);
+    //if (mergeConflicts.length > 0) {
+      //const message = mergeConflicts.length > 1
+        //? localize('confirm stage files with merge conflicts', "Are you sure you want to stage {0} files with merge conflicts?", mergeConflicts.length)
+        //: localize('confirm stage file with merge conflicts', "Are you sure you want to stage {0} with merge conflicts?", path.basename(mergeConflicts[0].resourceUri.fsPath));
 
-  //     if (pick !== yes) {
-  //       return;
-  //     }
-  //   }
+      //const yes = localize('yes', "Yes");
+      //const pick = await window.showWarningMessage(message, { modal: true }, yes);
 
-  //   const workingTree = selection
-  //     .filter(s => s.resourceGroupType === ResourceGroupType.WorkingTree);
+      //if (pick !== yes) {
+        //return;
+      //}
+    //}
 
-  //   const scmResources = [...workingTree, ...mergeConflicts];
+    const untrackedTree = selection
+      .filter(s => s.resourceGroupType === ResourceGroupType.UntrackedTree);
 
-  //   if (!scmResources.length) {
-  //     return;
-  //   }
+    const scmResources = [...untrackedTree/*, ...mergeConflicts*/];
 
-  //   const resources = scmResources.map(r => r.resourceUri);
-  //   await this.runByRepository(resources, async (repository, resources) => repository.add(resources));
-  // }
+    if (!scmResources.length) {
+      return;
+    }
+
+    const resources = scmResources.map(r => r.resourceUri);
+    await this.runByRepository(resources, async (repository, resources) => repository.add(resources));
+  }
 
   // @command('git.stageAll', { repository: true })
   // async stageAll(repository: Repository): Promise<void> {
@@ -1325,36 +1327,36 @@ export class CommandCenter {
     }
   }
 
-  // private runByRepository<T>(resource: Uri, fn: (repository: Repository, resource: Uri) => Promise<T>): Promise<T[]>;
-  // private runByRepository<T>(resources: Uri[], fn: (repository: Repository, resources: Uri[]) => Promise<T>): Promise<T[]>;
-  // private async runByRepository<T>(arg: Uri | Uri[], fn: (repository: Repository, resources: any) => Promise<T>): Promise<T[]> {
-  //   const resources = arg instanceof Uri ? [arg] : arg;
-  //   const isSingleResource = arg instanceof Uri;
+  private runByRepository<T>(resource: Uri, fn: (repository: Repository, resource: Uri) => Promise<T>): Promise<T[]>;
+  private runByRepository<T>(resources: Uri[], fn: (repository: Repository, resources: Uri[]) => Promise<T>): Promise<T[]>;
+  private async runByRepository<T>(arg: Uri | Uri[], fn: (repository: Repository, resources: any) => Promise<T>): Promise<T[]> {
+    const resources = arg instanceof Uri ? [arg] : arg;
+    const isSingleResource = arg instanceof Uri;
 
-  //   const groups = resources.reduce((result, resource) => {
-  //     const repository = this.model.getRepository(resource);
+    const groups = resources.reduce((result, resource) => {
+      const repository = this.model.getRepository(resource);
 
-  //     if (!repository) {
-  //       console.warn('Could not find git repository for ', resource);
-  //       return result;
-  //     }
+      if (!repository) {
+        console.warn('Could not find bzr repository for ', resource);
+        return result;
+      }
 
-  //     const tuple = result.filter(p => p[0] === repository)[0];
+      const tuple = result.filter(p => p[0] === repository)[0];
 
-  //     if (tuple) {
-  //       tuple.resources.push(resource);
-  //     } else {
-  //       result.push({ repository, resources: [resource] });
-  //     }
+      if (tuple) {
+        tuple.resources.push(resource);
+      } else {
+        result.push({ repository, resources: [resource] });
+      }
 
-  //     return result;
-  //   }, [] as { repository: Repository, resources: Uri[] }[]);
+      return result;
+    }, [] as { repository: Repository, resources: Uri[] }[]);
 
-  //   const promises = groups
-  //     .map(({ repository, resources }) => fn(repository as Repository, isSingleResource ? resources[0] : resources));
+    const promises = groups
+      .map(({ repository, resources }) => fn(repository as Repository, isSingleResource ? resources[0] : resources));
 
-  //   return Promise.all(promises);
-  // }
+    return Promise.all(promises);
+  }
 
   dispose(): void {
     this.disposables.forEach(d => d.dispose());

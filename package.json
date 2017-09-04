@@ -79,6 +79,15 @@
                 "command": "bzr.openHEADFile",
                 "title": "%command.openHEADFile%",
                 "category": "Bzr"
+            },
+            {
+                "command": "bzr.add",
+                "title": "%command.add%",
+                "category": "Bzr",
+                "icon": {
+                    "light": "resources/icons/light/stage.svg",
+                    "dark": "resources/icons/dark/stage.svg"
+                }
             }
         ],
         "menus": {
@@ -105,6 +114,10 @@
                 },
                 {
                     "command": "bzr.openHEADFile",
+                    "when": "config.bzr.enabled && bzrOpenRepositoryCount != 0"
+                },
+                {
+                    "command": "bzr.add",
                     "when": "config.bzr.enabled && bzrOpenRepositoryCount != 0"
                 }
             ],
@@ -135,6 +148,16 @@
                     "command": "bzr.openHEADFile",
                     "when": "config.bzr.enabled && scmProvider == bzr && scmResourceGroup == modified",
                     "group": "navigation"
+                },
+                {
+                    "command": "bzr.add",
+                    "when": "config.bzr.enabled && scmProvider == bzr && scmResourceGroup == unknown",
+                    "group": "1_modification"
+                },
+                {
+                    "command": "bzr.add",
+                    "when": "config.bzr.enabled && scmProvider == bzr && scmResourceGroup == unknown",
+                    "group": "inline"
                 }
             ],
             "editor/title": [

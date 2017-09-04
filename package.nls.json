@@ -6,7 +6,7 @@
   "command.openChange": "Open Changes",
   "command.openFile": "Open File",
   "command.openHEADFile": "Open File (Last Revision)",
-  // "command.stage": "Stage Changes",
+  "command.add": "Track File",
   // "command.stageAll": "Stage All Changes",
   // "command.stageSelectedRanges": "Stage Selected Ranges",
   // "command.revertSelectedRanges": "Revert Selected Ranges",

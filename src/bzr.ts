@@ -415,6 +415,10 @@ export class Repository {
     return this.repositoryRoot;
   }
 
+  async run(args: string[], options: any = {}): Promise<IExecutionResult> {
+    return await this.bzr.exec(this.repositoryRoot, args, options);
+  }
+
   stream(args: string[], options: any = {}): cp.ChildProcess {
     return this.bzr.stream(this.repositoryRoot, args, options);
   }
@@ -436,6 +440,18 @@ export class Repository {
     }
 
     return stdout;
+  }
+
+  async add(paths: string[]): Promise<void> {
+    const args = ['add'];
+
+    if (paths && paths.length) {
+      args.push.apply(args, paths);
+    } else {
+      args.push('.');
+    }
+
+    await this.run(args);
   }
 
   getStatus(limit = 5000): Promise<{ status: IFileStatus[]; didHitLimit: boolean; }> {
