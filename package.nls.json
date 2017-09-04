@@ -7,7 +7,7 @@
   "command.openFile": "Open File",
   "command.openHEADFile": "Open File (Last Revision)",
   "command.add": "Track File",
-  // "command.stageAll": "Stage All Changes",
+  "command.addAll": "Track All Files",
   // "command.stageSelectedRanges": "Stage Selected Ranges",
   // "command.revertSelectedRanges": "Revert Selected Ranges",
   // "command.unstage": "Unstage Changes",

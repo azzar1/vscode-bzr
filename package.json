@@ -88,6 +88,15 @@
                     "light": "resources/icons/light/stage.svg",
                     "dark": "resources/icons/dark/stage.svg"
                 }
+            },
+            {
+                "command": "bzr.addAll",
+                "title": "%command.addAll%",
+                "category": "Git",
+                "icon": {
+                    "light": "resources/icons/light/stage.svg",
+                    "dark": "resources/icons/dark/stage.svg"
+                }
             }
         ],
         "menus": {
@@ -119,6 +128,10 @@
                 {
                     "command": "bzr.add",
                     "when": "config.bzr.enabled && bzrOpenRepositoryCount != 0"
+                },
+                {
+                    "command": "bzr.addAll",
+                    "when": "config.bzr.enabled && bzrOpenRepositoryCount != 0"
                 }
             ],
             "scm/title": [
@@ -131,6 +144,18 @@
                     "command": "bzr.refresh",
                     "group": "navigation",
                     "when": "config.bzr.enabled && scmProvider == bzr"
+                }
+            ],
+            "scm/resourceGroup/context": [
+                {
+                    "command": "bzr.addAll",
+                    "when": "config.bzr.enabled && scmProvider == bzr && scmResourceGroup == unknown",
+                    "group": "1_modification"
+                },
+                {
+                    "command": "bzr.addAll",
+                    "when": "config.bzr.enabled && scmProvider == bzr && scmResourceGroup == unknown",
+                    "group": "inline"
                 }
             ],
             "scm/resourceState/context": [
